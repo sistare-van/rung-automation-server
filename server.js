@@ -234,5 +234,5 @@ app.post("/webhook", async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Rung server running on port ${PORT} — client: ${process.env.CLIENT_NAME}`);
   const token = process.env.NOTION_TOKEN;
-  console.log(`NOTION_TOKEN (first 10 chars): ${token ? token.slice(0, 10) : "NOT SET"}`);
+  console.log(`NOTION_TOKEN (first 20 chars): ${token ? token.slice(0, 20) : "NOT SET"}`);
 });
