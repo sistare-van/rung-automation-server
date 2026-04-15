@@ -167,3 +167,4 @@ Expected response:
 ```json
 {"success":false,"message":"Missing required fields","missing":["email","service"]}
 ```
+# rung-automation-server
