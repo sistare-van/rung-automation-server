@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs kill *)",
+      "Bash(node /Users/Julia/Desktop/rung-automation-server/server.js)"
+    ]
+  }
+}
