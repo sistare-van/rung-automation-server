@@ -316,6 +316,11 @@ fi
 echo "✓ Deployed to Railway: ${RAILWAY_URL}"
 cd - > /dev/null
 
+# ── Patch webhookUrl ─────────────────────────────
+sed -i '' "s|https://YOUR-PROJECT.railway.app/webhook|${RAILWAY_URL}/webhook|" "$SITE_DIR/client.js"
+sed -i '' "s| // ← update after Railway deploy||" "$SITE_DIR/client.js"
+echo "✓ webhookUrl patched in client.js"
+
 # ── Done ─────────────────────────────────────────
 echo ""
 echo "═══════════════════════════════════════════════"
