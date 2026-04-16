@@ -270,6 +270,25 @@ fi
 echo "NOTION_DATABASE_ID=${NOTION_DATABASE_ID}" >> "$SERVER_DIR/.env"
 echo "✓ Notion database created"
 
+# ── GitHub ───────────────────────────────────────
+echo "Creating GitHub repo..."
+cd "$SERVER_DIR"
+
+# Ensure node_modules and .env are gitignored
+if ! grep -q "node_modules" .gitignore 2>/dev/null; then
+  echo "node_modules" >> .gitignore
+  echo ".env" >> .gitignore
+fi
+
+rm -rf .git
+git init -b main
+git add .
+git commit -m "Initial commit — ${BIZ_NAME} automation server"
+gh repo create "${SLUG}-server" --private --source=. --remote=origin --push
+echo "✓ GitHub repo created: ${SLUG}-server"
+
+cd - > /dev/null
+
 # ── Done ─────────────────────────────────────────
 echo ""
 echo "═══════════════════════════════════════════════"
