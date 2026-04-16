@@ -327,7 +327,7 @@ fi
 
 # ── Netlify ──────────────────────────────────────
 echo "Deploying site to Netlify..."
-NETLIFY_OUTPUT=$(netlify deploy --prod --dir="$SITE_DIR" 2>&1)
+NETLIFY_OUTPUT=$(netlify deploy --prod --dir="$SITE_DIR" 2>&1) || true
 NETLIFY_URL=$(echo "$NETLIFY_OUTPUT" | grep -oE 'https://[a-z0-9-]+\.netlify\.app' | tail -1)
 
 if [[ -z "$NETLIFY_URL" ]]; then
