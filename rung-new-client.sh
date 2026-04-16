@@ -88,6 +88,32 @@ for i in 1 2 3; do
   printf -v "SVC${i}_DESC" '%s' "$_svc_desc"
 done
 
+# ── Testimonials ─────────────────────────────────
+echo ""
+echo "Testimonials"
+read -rp "How many testimonials? [1]: " NUM_TESTIMONIALS
+NUM_TESTIMONIALS="${NUM_TESTIMONIALS:-1}"
+# Clamp to 1-3
+[[ "$NUM_TESTIMONIALS" -lt 1 ]] && NUM_TESTIMONIALS=1
+[[ "$NUM_TESTIMONIALS" -gt 3 ]] && NUM_TESTIMONIALS=3
+
+TESTIMONIALS_JSON=""
+for i in $(seq 1 "$NUM_TESTIMONIALS"); do
+  echo "Testimonial $i:"
+  read -rp "  Quote: " _t_quote
+  read -rp "  Customer name: " _t_name
+  read -rp "  Location [${CITY}]: " _t_loc
+  _t_loc="${_t_loc:-$CITY}"
+  # Strip double quotes to prevent breaking JS string literals
+  _t_quote="${_t_quote//\"/}"
+  _t_name="${_t_name//\"/}"
+  _t_loc="${_t_loc//\"/}"
+  if [[ -n "$TESTIMONIALS_JSON" ]]; then
+    TESTIMONIALS_JSON="${TESTIMONIALS_JSON},"$'\n      '
+  fi
+  TESTIMONIALS_JSON="${TESTIMONIALS_JSON}{ quote: \"${_t_quote}\", name: \"${_t_name}\", location: \"${_t_loc}\" }"
+done
+
 # ── About ────────────────────────────────────────
 echo ""
 echo "About section"
@@ -162,11 +188,11 @@ const CLIENT = {
     badges:    ["Licensed", "Insured", "BBB Accredited"],
   },
 
-  // ── Testimonials — EDIT THESE ─────────────────
+  // ── Testimonials ──────────────────────────────
   testimonials: {
     enabled: true,
     items: [
-      { quote: "Paste a real customer review here.", name: "Customer Name", location: "${CITY}" },
+      ${TESTIMONIALS_JSON}
     ],
   },
 
