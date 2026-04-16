@@ -93,7 +93,8 @@ echo ""
 echo "Testimonials"
 read -rp "How many testimonials? [1]: " NUM_TESTIMONIALS
 NUM_TESTIMONIALS="${NUM_TESTIMONIALS:-1}"
-# Clamp to 1-3
+# Ensure numeric, then clamp to 1-3
+[[ "$NUM_TESTIMONIALS" =~ ^[0-9]+$ ]] || NUM_TESTIMONIALS=1
 [[ "$NUM_TESTIMONIALS" -lt 1 ]] && NUM_TESTIMONIALS=1
 [[ "$NUM_TESTIMONIALS" -gt 3 ]] && NUM_TESTIMONIALS=3
 
