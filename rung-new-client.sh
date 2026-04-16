@@ -325,6 +325,18 @@ else
   echo "⚠  webhookUrl not patched — update client.js webhookUrl manually after Railway deploy"
 fi
 
+# ── Netlify ──────────────────────────────────────
+echo "Deploying site to Netlify..."
+NETLIFY_OUTPUT=$(netlify deploy --prod --dir="$SITE_DIR" 2>&1)
+NETLIFY_URL=$(echo "$NETLIFY_OUTPUT" | grep -oE 'https://[a-z0-9-]+\.netlify\.app' | tail -1)
+
+if [[ -z "$NETLIFY_URL" ]]; then
+  echo "⚠  Could not capture Netlify URL. Check netlify.com for the live URL."
+  NETLIFY_URL="(check netlify.com)"
+fi
+
+echo "✓ Site deployed: ${NETLIFY_URL}"
+
 # ── Done ─────────────────────────────────────────
 echo ""
 echo "═══════════════════════════════════════════════"
