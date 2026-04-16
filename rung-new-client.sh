@@ -294,9 +294,11 @@ cd "$SERVER_DIR"
 railway init --name "${SLUG}-server"
 
 # Set all env vars from .env file
-while IFS='=' read -r key value; do
-  [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
-  railway variables set "${key}=${value}"
+while IFS= read -r line; do
+  [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+  key="${line%%=*}"
+  value="${line#*=}"
+  railway variables set "${key}=${value}" || { echo "✗ Failed to set Railway variable: ${key}"; exit 1; }
 done < .env
 
 railway up
