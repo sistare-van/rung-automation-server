@@ -134,7 +134,6 @@ echo "  (skip any you don't have yet — edit .env later)"
 echo "═══════════════════════════════════════════════"
 echo ""
 read -rp "Notion token (secret_xxx): " NOTION_TOKEN
-read -rp "Notion database ID: " NOTION_DB_ID
 read -rp "Twilio Account SID (ACxxx): " TWILIO_SID
 read -rp "Twilio Auth Token: " TWILIO_AUTH
 read -rp "Twilio from number (E.164): " TWILIO_FROM
@@ -227,7 +226,6 @@ CLIENT_NAME=${BIZ_NAME}
 OWNER_NAME=${OWNER_NAME}
 OWNER_PHONE=${OWNER_PHONE_E164}
 NOTION_TOKEN=${NOTION_TOKEN}
-NOTION_DATABASE_ID=${NOTION_DB_ID}
 TWILIO_ACCOUNT_SID=${TWILIO_SID}
 TWILIO_AUTH_TOKEN=${TWILIO_AUTH}
 TWILIO_FROM_NUMBER=${TWILIO_FROM}
@@ -235,6 +233,41 @@ CLAUDE_API_KEY=${CLAUDE_KEY}
 GMAIL_USER=${GMAIL_USER}
 GMAIL_APP_PASSWORD=${GMAIL_PASS}
 ENVFILE
+
+# ── Create Notion database ───────────────────────
+echo ""
+echo "Creating Notion database..."
+NOTION_RESPONSE=$(curl -s -X POST https://api.notion.com/v1/databases \
+  -H "Authorization: Bearer ${NOTION_TOKEN}" \
+  -H "Notion-Version: 2022-06-28" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"parent\": { \"type\": \"page_id\", \"page_id\": \"${NOTION_PARENT_PAGE_ID}\" },
+    \"title\": [{ \"type\": \"text\", \"text\": { \"content\": \"${BIZ_NAME} Leads\" } }],
+    \"properties\": {
+      \"Name\": { \"title\": {} },
+      \"Email\": { \"email\": {} },
+      \"Phone\": { \"phone_number\": {} },
+      \"Message\": { \"rich_text\": {} },
+      \"Lead Score\": { \"number\": {} },
+      \"Date\": { \"date\": {} }
+    }
+  }")
+
+NOTION_DATABASE_ID=$(echo "$NOTION_RESPONSE" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(d['id'].replace('-', ''))
+" 2>/dev/null)
+
+if [[ -z "$NOTION_DATABASE_ID" ]]; then
+  echo "✗ Notion DB creation failed. Check NOTION_TOKEN and NOTION_PARENT_PAGE_ID."
+  echo "  Response: $NOTION_RESPONSE"
+  exit 1
+fi
+
+echo "NOTION_DATABASE_ID=${NOTION_DATABASE_ID}" >> "$SERVER_DIR/.env"
+echo "✓ Notion database created"
 
 # ── Done ─────────────────────────────────────────
 echo ""
