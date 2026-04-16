@@ -48,6 +48,7 @@ echo ""
 # ── Identity ─────────────────────────────────────
 read -rp "Client slug (no spaces, e.g. metro-plumbing): " SLUG
 read -rp "Business name (e.g. Metro Plumbing): " BIZ_NAME
+BIZ_NAME="${BIZ_NAME//\"/}"
 read -rp "Tagline (e.g. Fast. Reliable. Licensed.): " TAGLINE
 read -rp "City, State (e.g. Chicago, IL): " CITY
 read -rp "Phone (e.g. 312-555-0100): " PHONE
