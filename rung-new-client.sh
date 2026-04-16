@@ -287,6 +287,33 @@ echo "✓ GitHub repo created: ${SLUG}-server"
 
 cd - > /dev/null
 
+# ── Railway ──────────────────────────────────────
+echo "Deploying to Railway..."
+cd "$SERVER_DIR"
+
+railway init --name "${SLUG}-server"
+
+# Set all env vars from .env file
+while IFS='=' read -r key value; do
+  [[ "$key" =~ ^#.*$ || -z "$key" ]] && continue
+  railway variables set "${key}=${value}"
+done < .env
+
+railway up
+
+RAILWAY_OUTPUT=$(railway domain 2>&1)
+RAILWAY_DOMAIN=$(echo "$RAILWAY_OUTPUT" | grep -oE '[a-zA-Z0-9-]+\.up\.railway\.app' | head -1)
+RAILWAY_URL="https://${RAILWAY_DOMAIN}"
+
+if [[ -z "$RAILWAY_DOMAIN" ]]; then
+  echo "⚠  Could not capture Railway URL automatically."
+  echo "   Check your Railway dashboard and update client.js webhookUrl manually."
+  RAILWAY_URL="https://YOUR-PROJECT.up.railway.app"
+fi
+
+echo "✓ Deployed to Railway: ${RAILWAY_URL}"
+cd - > /dev/null
+
 # ── Done ─────────────────────────────────────────
 echo ""
 echo "═══════════════════════════════════════════════"
