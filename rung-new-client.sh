@@ -275,10 +275,8 @@ echo "Creating GitHub repo..."
 cd "$SERVER_DIR"
 
 # Ensure node_modules and .env are gitignored
-if ! grep -q "node_modules" .gitignore 2>/dev/null; then
-  echo "node_modules" >> .gitignore
-  echo ".env" >> .gitignore
-fi
+grep -q "node_modules" .gitignore 2>/dev/null || echo "node_modules" >> .gitignore
+grep -q "^\.env$"      .gitignore 2>/dev/null || echo ".env"         >> .gitignore
 
 rm -rf .git
 git init -b main
