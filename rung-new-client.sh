@@ -80,8 +80,12 @@ echo ""
 echo "Services (3 services shown on the website)"
 for i in 1 2 3; do
   echo "Service $i:"
-  read -rp "  Name (e.g. Emergency Repair): " "SVC${i}_NAME"
-  read -rp "  Description (e.g. Same-day response, any time.): " "SVC${i}_DESC"
+  read -rp "  Name (e.g. Emergency Repair): " _svc_name
+  read -rp "  Description (e.g. Same-day response, any time.): " _svc_desc
+  _svc_name="${_svc_name//\"/}"
+  _svc_desc="${_svc_desc//\"/}"
+  printf -v "SVC${i}_NAME" '%s' "$_svc_name"
+  printf -v "SVC${i}_DESC" '%s' "$_svc_desc"
 done
 
 # ── About ────────────────────────────────────────
