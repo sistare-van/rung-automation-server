@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": []
+  },
+  "sandbox": {
+    "network": {
+      "allowedDomains": ["api.resend.com"]
+    }
+  }
+}
