@@ -75,6 +75,15 @@ read -rp "Stat 2 label (e.g. Jobs Done): " STAT2_LBL
 read -rp "Stat 3 value (e.g. 24/7): " STAT3_VAL
 read -rp "Stat 3 label (e.g. Available): " STAT3_LBL
 
+# ── Services ─────────────────────────────────────
+echo ""
+echo "Services (3 services shown on the website)"
+for i in 1 2 3; do
+  echo "Service $i:"
+  read -rp "  Name (e.g. Emergency Repair): " "SVC${i}_NAME"
+  read -rp "  Description (e.g. Same-day response, any time.): " "SVC${i}_DESC"
+done
+
 # ── About ────────────────────────────────────────
 echo ""
 echo "About section"
@@ -134,11 +143,11 @@ const CLIENT = {
     { value: "${STAT3_VAL}", label: "${STAT3_LBL}" },
   ],
 
-  // ── Services — EDIT THESE ─────────────────────
+  // ── Services ──────────────────────────────────
   services: [
-    { icon: "🚨", name: "Emergency Repair",  desc: "Same-day response, any time." },
-    { icon: "🔧", name: "Service 2",         desc: "Edit this description." },
-    { icon: "⚙️",  name: "Service 3",         desc: "Edit this description." },
+    { icon: "🔧", name: "${SVC1_NAME}", desc: "${SVC1_DESC}" },
+    { icon: "⚙️",  name: "${SVC2_NAME}", desc: "${SVC2_DESC}" },
+    { icon: "🛠️", name: "${SVC3_NAME}", desc: "${SVC3_DESC}" },
   ],
 
   // ── About ─────────────────────────────────────
