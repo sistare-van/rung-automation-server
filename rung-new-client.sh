@@ -6,6 +6,13 @@ set -e
 # ── One-time config (set this once) ──────────────
 NOTION_PARENT_PAGE_ID="PASTE_YOUR_NOTION_PAGE_ID_HERE"
 
+if [[ "$NOTION_PARENT_PAGE_ID" == "PASTE_YOUR_NOTION_PAGE_ID_HERE" ]]; then
+  echo "✗ NOTION_PARENT_PAGE_ID has not been set."
+  echo "  Open rung-new-client.sh and replace PASTE_YOUR_NOTION_PAGE_ID_HERE"
+  echo "  with your actual Notion parent page ID."
+  exit 1
+fi
+
 TEMPLATE=~/Desktop/rung-website-template
 SERVER_TEMPLATE=~/Desktop/rung-automation-server
 
@@ -15,7 +22,7 @@ command -v gh      >/dev/null 2>&1 || MISSING_CLIS+=("gh")
 command -v railway >/dev/null 2>&1 || MISSING_CLIS+=("railway")
 command -v netlify >/dev/null 2>&1 || MISSING_CLIS+=("netlify")
 
-if [ ${#MISSING_CLIS[@]} -gt 0 ]; then
+if [[ ${#MISSING_CLIS[@]} -gt 0 ]]; then
   echo ""
   echo "✗ Missing CLIs: ${MISSING_CLIS[*]}"
   echo ""
