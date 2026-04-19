@@ -305,6 +305,92 @@ app.post("/webhook", async (req, res) => {
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 
+// ── Intake endpoint (Rung client intake form) ───────────────────────────────
+
+const INTAKE_LIMITS = {
+  business_name: 200, tagline: 200, city_state: 100,
+  business_phone: 30, business_email: 254, owner_name: 100,
+  owner_cell: 20, owner_email: 254, custom_domain: 200,
+  theme: 20, services: 2000, owner_story: 2000,
+  testimonials: 3000, notes: 3000,
+};
+
+app.post("/intake", async (req, res) => {
+  const body = req.body || {};
+
+  // Honeypot (same `website` field as /webhook)
+  if (body.website && String(body.website).trim()) {
+    console.log("Intake honeypot triggered from", req.ip);
+    return res.json({ success: true });
+  }
+
+  for (const [field, max] of Object.entries(INTAKE_LIMITS)) {
+    const v = body[field];
+    if (v != null && String(v).length > max) {
+      return res.status(400).json({ success: false, message: `Field too long: ${field}` });
+    }
+  }
+
+  if (!body.business_name || !body.owner_name || !body.owner_email) {
+    return res.status(400).json({ success: false, message: "Missing business_name, owner_name, or owner_email" });
+  }
+
+  if (!EMAIL_RE.test(String(body.owner_email))) {
+    return res.status(400).json({ success: false, message: "Invalid owner_email" });
+  }
+
+  const lines = [
+    `New intake submission received.`,
+    ``,
+    `─── BUSINESS ───`,
+    `Business name:    ${body.business_name || ""}`,
+    `Tagline:          ${body.tagline || ""}`,
+    `City / State:     ${body.city_state || ""}`,
+    `Business phone:   ${body.business_phone || ""}`,
+    `Business email:   ${body.business_email || ""}`,
+    ``,
+    `─── OWNER / CONTACT ───`,
+    `Name:             ${body.owner_name || ""}`,
+    `Cell (E.164):     ${body.owner_cell || ""}`,
+    `Email:            ${body.owner_email || ""}`,
+    ``,
+    `─── DOMAIN & LOOK ───`,
+    `Custom domain:    ${body.custom_domain || "(none yet)"}`,
+    `Theme:            ${body.theme || "(default)"}`,
+    ``,
+    `─── SERVICES ───`,
+    body.services || "(blank)",
+    ``,
+    `─── OWNER STORY ───`,
+    body.owner_story || "(blank)",
+    ``,
+    `─── TESTIMONIALS ───`,
+    body.testimonials || "(blank)",
+    ``,
+    `─── NOTES ───`,
+    body.notes || "(blank)",
+    ``,
+    `──────────────────────`,
+    `Paste into rung-new-client.sh prompts, or reply direct to this email to kick off a call.`,
+  ];
+
+  try {
+    const senderDomain = process.env.SENDER_DOMAIN || "rungproductions.com";
+    const { error } = await resend.emails.send({
+      from: `Rung Intake <leads@${senderDomain}>`,
+      to: process.env.OWNER_EMAIL || "sistareae@gmail.com",
+      subject: `New intake: ${body.business_name}`,
+      text: lines.join("\n"),
+      replyTo: body.owner_email,
+    });
+    if (error) throw new Error(`Resend: ${error.message || JSON.stringify(error)}`);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error("Intake email send failed:", err.message);
+    return res.status(500).json({ success: false, message: "Could not send intake email" });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Rung server running on port ${PORT} — client: ${process.env.CLIENT_NAME}`);
 });
