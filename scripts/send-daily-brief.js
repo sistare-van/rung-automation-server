@@ -8,6 +8,8 @@ const {
   NOTION_TOKEN,
   NOTION_DATABASE_ID,
   CLAUDE_API_KEY,
+  GITHUB_TOKEN,
+  GITHUB_USER = "sistare-van",
   BRIEFING_TO = "sistareae@gmail.com",
   BRIEFING_FROM = "Rung Daily <onboarding@resend.dev>",
 } = process.env;
@@ -33,11 +35,76 @@ function esc(s) {
   return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
 
+async function fetchGithubEvents() {
+  if (!GITHUB_TOKEN) return [];
+  const cutoff = Date.now() - 24 * 3600 * 1000;
+  const interesting = new Set([
+    "PushEvent",
+    "PullRequestEvent",
+    "IssuesEvent",
+    "IssueCommentEvent",
+    "PullRequestReviewEvent",
+    "PullRequestReviewCommentEvent",
+    "CreateEvent",
+    "ReleaseEvent",
+  ]);
+  const resp = await fetch(`https://api.github.com/users/${GITHUB_USER}/events?per_page=100`, {
+    headers: {
+      Authorization: `Bearer ${GITHUB_TOKEN}`,
+      Accept: "application/vnd.github+json",
+      "User-Agent": "rung-daily-brief",
+    },
+  });
+  if (!resp.ok) throw new Error(`GitHub ${resp.status}: ${await resp.text()}`);
+  const events = await resp.json();
+  return events
+    .filter(e => interesting.has(e.type) && new Date(e.created_at).getTime() >= cutoff)
+    .map(e => ({
+      type: e.type,
+      repo: e.repo?.name,
+      time: e.created_at,
+      summary: summarizeEvent(e),
+    }));
+}
+
+function summarizeEvent(e) {
+  const p = e.payload || {};
+  switch (e.type) {
+    case "PushEvent":
+      return `pushed ${p.size || p.commits?.length || 0} commit(s) to ${p.ref?.replace("refs/heads/", "") || "?"}: ${(p.commits || []).map(c => c.message.split("\n")[0]).join(" | ")}`;
+    case "PullRequestEvent":
+      return `${p.action} PR #${p.number}: ${p.pull_request?.title}`;
+    case "IssuesEvent":
+      return `${p.action} issue #${p.issue?.number}: ${p.issue?.title}`;
+    case "IssueCommentEvent":
+      return `commented on #${p.issue?.number}: ${(p.comment?.body || "").slice(0, 120)}`;
+    case "PullRequestReviewEvent":
+      return `${p.action} review on PR #${p.pull_request?.number}`;
+    case "PullRequestReviewCommentEvent":
+      return `review comment on PR #${p.pull_request?.number}`;
+    case "CreateEvent":
+      return `created ${p.ref_type}${p.ref ? " " + p.ref : ""}`;
+    case "ReleaseEvent":
+      return `${p.action} release ${p.release?.tag_name}`;
+    default:
+      return e.type;
+  }
+}
+
+function extractWorkLog() {
+  const raw = safeSync(() => readFileSync("work-log.md", "utf8"));
+  if (!raw) return "";
+  const sections = raw.split(/^##\s+/m).slice(1);
+  return sections.slice(0, 2).map(s => "## " + s).join("\n").trim();
+}
+
 async function gather() {
   const gitLog = safeSync(() =>
     execSync("git log --since='2 days ago' --pretty=format:'%h %ai %s' --all", { encoding: "utf8" }).trim()
   );
   const claudeMd = safeSync(() => readFileSync("CLAUDE.md", "utf8"));
+  const workLog = extractWorkLog();
+  const githubEvents = await safeAsync(fetchGithubEvents, []);
 
   let leads = [];
   if (NOTION_TOKEN && NOTION_DATABASE_ID) {
@@ -54,16 +121,22 @@ async function gather() {
     }, []);
   }
 
-  return { gitLog, claudeMd, leads };
+  return { gitLog, claudeMd, workLog, githubEvents, leads };
 }
 
-async function composeDynamic({ gitLog, claudeMd, leads }) {
+async function composeDynamic({ gitLog, claudeMd, workLog, githubEvents, leads }) {
   const anthropic = new Anthropic({ apiKey: CLAUDE_API_KEY });
   const prompt = `Today's date: ${today}.
 
 You're composing a daily briefing email for Van Sistare, who runs Rung Productions (a web agency selling websites + automation to local service businesses).
 
-## Recent git activity (rung-automation-server, last 48h)
+## Work log (Van's own session notes, most recent entries — HIGHEST SIGNAL for what he did + what he's thinking)
+${workLog || "No work-log.md entries found."}
+
+## GitHub activity across all repos (last 24h, ${githubEvents.length} events)
+${githubEvents.length ? JSON.stringify(githubEvents, null, 2).slice(0, 3000) : "No GitHub activity."}
+
+## Recent git activity (rung-automation-server checkout, last 48h)
 ${gitLog || "No commits."}
 
 ## CLAUDE.md context
@@ -74,8 +147,8 @@ ${JSON.stringify(leads, null, 2).slice(0, 3000)}
 
 Return JSON with exactly these keys (no prose, no markdown fences):
 {
-  "yesterday_progress": [2-4 short bullet strings summarizing commits + leads + notable state. If nothing, say so honestly.],
-  "todo_list": [3-5 concrete prioritized actions for today, focused on first paying client + sales pipeline + finishing blockers],
+  "yesterday_progress": [3-6 short bullet strings synthesizing the work log + GitHub activity + leads + notable state. Prefer specifics over generalities. If the work log is present, weight it heavily — it's Van's own words about what he did.],
+  "todo_list": [3-5 concrete prioritized actions for today, focused on first paying client + sales pipeline + finishing blockers. If the work log mentions open threads or next steps, surface them.],
   "claude_tip": "One 2-3 sentence practical Claude Code tip. Rotate topics across days (/init, worktrees, MCP, slash commands, subagents, hooks, keyboard shortcuts)."
 }`;
 
