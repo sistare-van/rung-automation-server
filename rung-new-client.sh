@@ -3,18 +3,9 @@
 
 set -e
 
-# ── One-time config (set this once) ──────────────
-NOTION_PARENT_PAGE_ID="PASTE_YOUR_NOTION_PAGE_ID_HERE"
-
-if [[ "$NOTION_PARENT_PAGE_ID" == "PASTE_YOUR_NOTION_PAGE_ID_HERE" ]]; then
-  echo "✗ NOTION_PARENT_PAGE_ID has not been set."
-  echo "  Open rung-new-client.sh and replace PASTE_YOUR_NOTION_PAGE_ID_HERE"
-  echo "  with your actual Notion parent page ID."
-  exit 1
-fi
-
 TEMPLATE=~/Desktop/rung-website-template
 SERVER_TEMPLATE=~/Desktop/rung-automation-server
+SHARED_CREDS_FILE="$HOME/.rung/shared-credentials"
 
 # ── CLI prerequisite check ────────────────────────
 MISSING_CLIS=()
@@ -38,6 +29,63 @@ if [[ ${#MISSING_CLIS[@]} -gt 0 ]]; then
   echo ""
   exit 1
 fi
+
+# ── Shared credentials (loaded once; reused across all clients) ──────────────
+if [[ ! -f "$SHARED_CREDS_FILE" ]]; then
+  mkdir -p "$(dirname "$SHARED_CREDS_FILE")"
+  chmod 700 "$(dirname "$SHARED_CREDS_FILE")"
+  SEED_ENV="$SERVER_TEMPLATE/.env"
+  if [[ -f "$SEED_ENV" ]]; then
+    echo ""
+    echo "First run — seeding $SHARED_CREDS_FILE from $SEED_ENV"
+    {
+      echo "# Rung shared credentials — reused across all client deployments."
+      echo "# Edit this file directly to rotate keys. Never commit it to git."
+      echo ""
+      for key in NOTION_TOKEN TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN TWILIO_FROM_NUMBER CLAUDE_API_KEY RESEND_API_KEY; do
+        val=$(grep "^${key}=" "$SEED_ENV" | head -1 | cut -d= -f2-)
+        echo "export ${key}=${val}"
+      done
+      echo "export NOTION_PARENT_PAGE_ID=3442239512dd809fb57bc7e61db936d5"
+    } > "$SHARED_CREDS_FILE"
+    chmod 600 "$SHARED_CREDS_FILE"
+    echo "✓ Saved. Edit $SHARED_CREDS_FILE to rotate any key later."
+  else
+    echo ""
+    echo "First run — enter each shared credential once (saved to $SHARED_CREDS_FILE):"
+    read -rp "  Notion integration token (ntn_/secret_): " _NOTION_TOKEN
+    read -rp "  Notion parent page ID (32-char hex, no dashes): " _NOTION_PARENT_PAGE_ID
+    read -rp "  Twilio Account SID (ACxxx): " _TWILIO_ACCOUNT_SID
+    read -rp "  Twilio Auth Token: " _TWILIO_AUTH_TOKEN
+    read -rp "  Twilio 'from' number (E.164): " _TWILIO_FROM_NUMBER
+    read -rp "  Anthropic API key (sk-ant-xxx): " _CLAUDE_API_KEY
+    read -rp "  Resend API key (re_xxx): " _RESEND_API_KEY
+    cat > "$SHARED_CREDS_FILE" << CREDS
+# Rung shared credentials — reused across all client deployments.
+# Edit this file directly to rotate keys. Never commit it to git.
+
+export NOTION_TOKEN=${_NOTION_TOKEN}
+export NOTION_PARENT_PAGE_ID=${_NOTION_PARENT_PAGE_ID}
+export TWILIO_ACCOUNT_SID=${_TWILIO_ACCOUNT_SID}
+export TWILIO_AUTH_TOKEN=${_TWILIO_AUTH_TOKEN}
+export TWILIO_FROM_NUMBER=${_TWILIO_FROM_NUMBER}
+export CLAUDE_API_KEY=${_CLAUDE_API_KEY}
+export RESEND_API_KEY=${_RESEND_API_KEY}
+CREDS
+    chmod 600 "$SHARED_CREDS_FILE"
+    echo "✓ Saved to $SHARED_CREDS_FILE."
+  fi
+fi
+
+# shellcheck source=/dev/null
+source "$SHARED_CREDS_FILE"
+
+for key in NOTION_TOKEN NOTION_PARENT_PAGE_ID TWILIO_ACCOUNT_SID TWILIO_AUTH_TOKEN TWILIO_FROM_NUMBER CLAUDE_API_KEY RESEND_API_KEY; do
+  if [[ -z "${!key}" ]]; then
+    echo "✗ Missing $key in $SHARED_CREDS_FILE. Edit the file and rerun."
+    exit 1
+  fi
+done
 
 echo ""
 echo "═══════════════════════════════════════════════"
@@ -127,21 +175,6 @@ echo "SEO"
 read -rp "Page title (e.g. Metro Plumbing | Emergency Plumber in Chicago, IL): " META_TITLE
 read -rp "Meta description (1-2 sentences): " META_DESC
 
-# ── Automation credentials ───────────────────────
-echo ""
-echo "═══════════════════════════════════════════════"
-echo "  Automation Server Credentials"
-echo "  (skip any you don't have yet — edit .env later)"
-echo "═══════════════════════════════════════════════"
-echo ""
-read -rp "Notion token (secret_xxx): " NOTION_TOKEN
-read -rp "Twilio Account SID (ACxxx): " TWILIO_SID
-read -rp "Twilio Auth Token: " TWILIO_AUTH
-read -rp "Twilio from number (E.164): " TWILIO_FROM
-read -rp "Anthropic API key (sk-ant-xxx): " CLAUDE_KEY
-read -rp "Gmail address: " GMAIL_USER
-read -rp "Gmail App Password (xxxx xxxx xxxx xxxx): " GMAIL_PASS
-
 # ── Copy site ────────────────────────────────────
 SITE_DIR=~/Desktop/$SLUG
 if [ -d "$SITE_DIR" ]; then
@@ -226,13 +259,13 @@ cat > "$SERVER_DIR/.env" << ENVFILE
 CLIENT_NAME=${BIZ_NAME}
 OWNER_NAME=${OWNER_NAME}
 OWNER_PHONE=${OWNER_PHONE_E164}
+OWNER_EMAIL=${EMAIL}
 NOTION_TOKEN=${NOTION_TOKEN}
-TWILIO_ACCOUNT_SID=${TWILIO_SID}
-TWILIO_AUTH_TOKEN=${TWILIO_AUTH}
-TWILIO_FROM_NUMBER=${TWILIO_FROM}
-CLAUDE_API_KEY=${CLAUDE_KEY}
-GMAIL_USER=${GMAIL_USER}
-GMAIL_APP_PASSWORD=${GMAIL_PASS}
+TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+TWILIO_FROM_NUMBER=${TWILIO_FROM_NUMBER}
+CLAUDE_API_KEY=${CLAUDE_API_KEY}
+RESEND_API_KEY=${RESEND_API_KEY}
 ENVFILE
 
 # ── Create Notion database ───────────────────────
@@ -248,8 +281,11 @@ NOTION_RESPONSE=$(curl -s -X POST https://api.notion.com/v1/databases \
     \"properties\": {
       \"Name\": { \"title\": {} },
       \"Email\": { \"email\": {} },
-      \"Phone\": { \"phone_number\": {} },
+      \"Phone\": { \"rich_text\": {} },
       \"Message\": { \"rich_text\": {} },
+      \"Service\": { \"select\": { \"options\": [] } },
+      \"Status\": { \"select\": { \"options\": [{ \"name\": \"New Lead\" }] } },
+      \"Source\": { \"rich_text\": {} },
       \"Lead Score\": { \"number\": {} },
       \"Date\": { \"date\": {} }
     }
@@ -291,7 +327,8 @@ cd - > /dev/null
 echo "Deploying to Railway..."
 cd "$SERVER_DIR"
 
-railway init --name "${SLUG}-server"
+RAILWAY_NAME=$(echo "${SLUG}-server" | tr '[:upper:]' '[:lower:]')
+railway init --name "$RAILWAY_NAME"
 
 # Set all env vars from .env file
 while IFS= read -r line; do
