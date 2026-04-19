@@ -48,7 +48,26 @@ Format: `## YYYY-MM-DD` header, then bullet points of what you did / decided / l
 - Runs a smoke test at the end — submits a fake lead and confirms Notion/email/SMS all fired correctly before declaring done.
 - Pulls the latest site template from GitHub each run, so any improvements I make to the template always flow through.
 
-### Still open
+### Security — sales-ready story
+Full details live in Notion → "Rung — Security One-Pager (Sales)" (under the Perplexity Context Brief). Highlights to remember:
+- Seven layers of protection on every client form: CORS allowlist, honeypot bot trap, 10/min rate limit, input length caps, body size cap, prompt-injection guard, encrypted HTTPS everywhere.
+- Budget caps set at Anthropic ($20 hard cap), Twilio ($10/$25 alerts), Resend (free-tier cap).
+- Honest rating vs. the industry: 7/10 for the threat model that actually matters for a local-services lead form. Stronger than most freelancer-built sites, weaker than Stripe (by design — different threat model).
+- Gaps to improve later: per-client credential isolation, Cloudflare Turnstile (dormant but wired), per-client Resend sender domain, automated dependency scanning.
+
+### Onboarding script — 5 passes shipped tonight
+`rung-new-client.sh` now handles new-client setup in one command:
+1. Reads shared creds (Notion/Twilio/Anthropic/Resend) from `~/.rung/shared-credentials` — no more pasting keys each time.
+2. Auto-sets CORS allowlist and SMS dry-run for the new deployment.
+3. Validates slug, phone, email, domain before spending time on deploy.
+4. Runs a smoke test against the fresh webhook at the end — confirms Notion + email + SMS all fire.
+5. Pulls the latest site template from GitHub each run (template now lives at `sistare-van/rung-website-template`).
+
+### Tonight's to-finish queue (priorities 1 → 3)
+1. Client intake form — web form the client fills out (instead of me typing everything into the script).
+2. Per-client Resend sender domain — so email replies come from the client's own domain, not `leads@rungproductions.com`.
+3. Work + About sections on rungproductions.com + restore those nav links.
+
+### Still open after tonight
 - Waiting on Twilio's review of the resubmitted A2P campaign. Once approved, I flip `SMS_DRY_RUN` to `false` on Railway and real lead-alert texts start sending.
 - Optional: turn on Cloudflare Turnstile (extra bot defense) once I sign up for it.
-- Rung Productions site still needs a proper "Work" (portfolio) section once I have 1-2 case studies and an "About" section with my story.

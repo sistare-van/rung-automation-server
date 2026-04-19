@@ -196,8 +196,9 @@ async function generateAndSendEmail({ name, email, service, message }) {
     .map((block) => block.text)
     .join("");
 
+  const senderDomain = process.env.SENDER_DOMAIN || "rungproductions.com";
   const { error } = await resend.emails.send({
-    from: `${process.env.CLIENT_NAME} <leads@rungproductions.com>`,
+    from: `${process.env.CLIENT_NAME} <leads@${senderDomain}>`,
     to: email,
     subject: `Re: Your ${service} request — ${process.env.CLIENT_NAME}`,
     text: emailBody,

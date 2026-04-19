@@ -336,6 +336,47 @@ fi
 echo "NOTION_DATABASE_ID=${NOTION_DATABASE_ID}" >> "$SERVER_DIR/.env"
 echo "✓ Notion database created"
 
+# ── Resend sender domain (auto-register when custom domain provided) ─────────
+RESEND_DNS_RECORDS=""
+if [[ -n "$CUSTOM_DOMAIN" ]]; then
+  echo ""
+  echo "Registering ${CUSTOM_DOMAIN} with Resend..."
+  RESEND_RESP=$(curl -sS -X POST https://api.resend.com/domains \
+    -H "Authorization: Bearer ${RESEND_API_KEY}" \
+    -H "Content-Type: application/json" \
+    -d "{\"name\":\"${CUSTOM_DOMAIN}\",\"region\":\"us-east-1\"}")
+
+  RESEND_DNS_RECORDS=$(echo "$RESEND_RESP" | python3 -c "
+import sys, json
+try:
+  d = json.load(sys.stdin)
+  if 'records' not in d:
+    print('ERROR: ' + (d.get('message') or json.dumps(d)))
+    sys.exit(0)
+  for r in d['records']:
+    name = r.get('name','')
+    rtype = r.get('type','')
+    value = r.get('value','')
+    prio = r.get('priority')
+    if prio is not None:
+      print(f'{rtype:<5}  {name:<30}  priority {prio}  {value}')
+    else:
+      print(f'{rtype:<5}  {name:<30}  {value}')
+except Exception as e:
+  print(f'ERROR: could not parse Resend response: {e}', file=sys.stderr)
+" 2>&1)
+
+  if echo "$RESEND_DNS_RECORDS" | grep -q '^ERROR'; then
+    echo "⚠  Resend domain registration failed:"
+    echo "   $RESEND_DNS_RECORDS"
+    echo "   Email replies will fall back to leads@rungproductions.com."
+    RESEND_DNS_RECORDS=""
+  else
+    echo "✓ Resend domain ${CUSTOM_DOMAIN} registered — DNS records to add shown in final summary"
+    echo "SENDER_DOMAIN=${CUSTOM_DOMAIN}" >> "$SERVER_DIR/.env"
+  fi
+fi
+
 # ── GitHub ───────────────────────────────────────
 echo "Creating GitHub repo..."
 cd "$SERVER_DIR"
@@ -477,11 +518,17 @@ echo "  1. Drop owner.jpg into ~/Desktop/${SLUG}/photos/"
 echo "  2. Add Google Maps embed → client.js mapEmbedUrl"
 echo "  3. Test: submit the contact form at ${NETLIFY_URL}"
 if [[ -n "$CUSTOM_DOMAIN" ]]; then
-echo "  4. Wire ${CUSTOM_DOMAIN} at the registrar:"
-echo "     ALIAS @ → apex-loadbalancer.netlify.com"
-echo "     CNAME www → $(echo "$NETLIFY_URL" | sed 's|https://||')"
-echo "     Then add the custom domain in Netlify → Domain settings"
+echo "  4. Wire ${CUSTOM_DOMAIN} DNS at the registrar (for the website):"
+echo "     ALIAS  @    → apex-loadbalancer.netlify.com"
+echo "     CNAME  www  → $(echo "$NETLIFY_URL" | sed 's|https://||')"
 fi
-echo "  5. Flip SMS_DRY_RUN=false on Railway once per-client A2P is approved"
+if [[ -n "$RESEND_DNS_RECORDS" ]]; then
+echo ""
+echo "  5. Add these DNS records at ${CUSTOM_DOMAIN}'s registrar (for email sending):"
+echo "$RESEND_DNS_RECORDS" | sed 's/^/       /'
+echo "     Resend will auto-verify within ~15 min of DNS propagation."
+echo "     Until verified, replies fall back to leads@rungproductions.com."
+fi
+echo "  6. Flip SMS_DRY_RUN=false on Railway once per-client A2P is approved"
 echo "═══════════════════════════════════════════════"
 echo ""
