@@ -63,10 +63,13 @@ Full details live in Notion → "Rung — Security One-Pager (Sales)" (under the
 4. Runs a smoke test against the fresh webhook at the end — confirms Notion + email + SMS all fire.
 5. Pulls the latest site template from GitHub each run (template now lives at `sistare-van/rung-website-template`).
 
-### Tonight's to-finish queue (priorities 1 → 3)
-1. Client intake form — web form the client fills out (instead of me typing everything into the script).
-2. Per-client Resend sender domain — so email replies come from the client's own domain, not `leads@rungproductions.com`.
-3. Work + About sections on rungproductions.com + restore those nav links.
+### Tonight's to-finish queue — all 3 DONE
+
+**1. Client intake form — DONE.** Live at rungproductions.com/intake. Clients fill one form with their biz info, theme pick, services, story, and testimonials. Submissions captured by Netlify Forms. *Remaining: configure email notifications to sistareae@gmail.com in Netlify dashboard (app.netlify.com/sites/rung-preview-van/forms/settings).*
+
+**2. Per-client Resend sender domain — DONE.** Server now reads a `SENDER_DOMAIN` env var and sends replies from `leads@{that-domain}` instead of the shared `leads@rungproductions.com`. Falls back to the default if unset. The onboarding script now auto-registers the client's custom domain with Resend and prints the DKIM/SPF/MX records to add at the client's registrar. Script change committed to template; server redeployed to Rung Railway (no functional change for Rung since it uses the default sender).
+
+**3. Work + About sections on rungproductions.com — DONE.** Restored Work and About to the nav. Work section shows Casselberry Plumbing as the first case study + a "your business next" placeholder for founding-client copy. About section is three plain-language paragraphs — one-person studio, same-day edits, goal of giving local service businesses agency-quality sites at fair prices. Both styled with editorial dark tokens (amber accent, Cormorant headlines).
 
 ### Still open after tonight
 - Waiting on Twilio's review of the resubmitted A2P campaign. Once approved, I flip `SMS_DRY_RUN` to `false` on Railway and real lead-alert texts start sending.
