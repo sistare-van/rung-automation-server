@@ -71,6 +71,19 @@ Full details live in Notion → "Rung — Security One-Pager (Sales)" (under the
 
 **3. Work + About sections on rungproductions.com — DONE.** Restored Work and About to the nav. Work section shows Casselberry Plumbing as the first case study + a "your business next" placeholder for founding-client copy. About section is three plain-language paragraphs — one-person studio, same-day edits, goal of giving local service businesses agency-quality sites at fair prices. Both styled with editorial dark tokens (amber accent, Cormorant headlines).
 
+### Late-night additions (still 2026-04-18 work)
+
+- **Hit Netlify's free-tier cap** — rungproductions.com started returning 503 shortly after midnight. Rather than upgrade to Netlify Pro ($19/mo), I migrated the site to **Cloudflare Pages** (free, unlimited bandwidth).
+- Cloudflare Pages project "rung" live at `https://rung-e79.pages.dev` with all pages (home, privacy, terms, intake, intake-thanks) working.
+- Added the domain `rungproductions.com` to Cloudflare, imported the 12 existing DNS records (MX, SPF, DKIM, DMARC, ACME — all preserved), and swapped the A/CNAME records that used to point at Netlify for CNAMEs pointing at Cloudflare Pages.
+- Updated nameservers at Porkbun from Porkbun's defaults to Cloudflare's two assigned nameservers. DNS propagation in progress — rungproductions.com expected back online within a couple hours after the switch.
+- Removed the custom domain from Netlify entirely so there's no chance of crossed wires once DNS flips.
+- Added the new Cloudflare URL to the Rung server's `ALLOWED_ORIGINS` CORS allowlist so form submissions work from both `rung-e79.pages.dev` and `rungproductions.com`.
+- Also fixed a crashloop on the old "rung-automation-server" Railway service (template leftover with no `RESEND_API_KEY`) — recommended deletion via dashboard.
+- Pivoted the intake form off Netlify Forms and onto the Rung server's new `/intake` endpoint, so client intake submissions no longer eat into Netlify's 100-per-month form cap.
+
 ### Still open after tonight
+- Verify rungproductions.com resolves via Cloudflare tomorrow morning (DNS propagation up to a few hours).
 - Waiting on Twilio's review of the resubmitted A2P campaign. Once approved, I flip `SMS_DRY_RUN` to `false` on Railway and real lead-alert texts start sending.
 - Optional: turn on Cloudflare Turnstile (extra bot defense) once I sign up for it.
+- Delete old Netlify site entirely (not urgent).

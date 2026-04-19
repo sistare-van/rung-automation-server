@@ -175,17 +175,6 @@ function buildHtml({ yesterday_progress, todo_list, claude_tip }) {
   <h3>Yesterday's Progress</h3>
   <ul>${bullets(yesterday_progress)}</ul>
 
-  <h3>Rung Productions Website — Go-Live Checklist</h3>
-  <ul>
-    <li>Deploy dedicated Rung webhook server (clone rung-automation-server, set env vars, Railway deploy)</li>
-    <li>Update form.js in rung-productions-site/ to the new Railway URL</li>
-    <li>Deploy static site to Netlify + connect rungproductions.com (Porkbun DNS)</li>
-    <li>Remove dev temp stuff: bg-switcher UI, js/bg-switcher.js + script tag, variants/ folder</li>
-    <li>Favicon (create or remove reference in index.html)</li>
-    <li>OG image (referenced but file missing)</li>
-    <li>End-to-end form test (email to sistareae@gmail.com + SMS to +14074579460)</li>
-  </ul>
-
   <h3>Today's To-Do</h3>
   <ol>${bullets(todo_list)}</ol>
 
