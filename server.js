@@ -25,7 +25,7 @@ app.use(cors({
   origin: (origin, cb) => {
     if (!origin) return cb(null, true); // curl / server-to-server
     if (ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-    return cb(new Error("Origin not allowed"));
+    return cb(null, false); // reject without throwing (browser drops the response)
   },
   methods: ["POST", "GET"],
 }));
