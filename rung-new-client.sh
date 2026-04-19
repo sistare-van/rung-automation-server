@@ -204,7 +204,12 @@ if [ -d "$SITE_DIR" ]; then
   [[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
   rm -rf "$SITE_DIR"
 fi
+# Pull the latest template from GitHub so every new client inherits recent changes
+if [ -d "$TEMPLATE/.git" ]; then
+  (cd "$TEMPLATE" && git pull --ff-only --quiet 2>/dev/null) || echo "  (template git pull skipped — no remote or offline)"
+fi
 cp -r "$TEMPLATE" "$SITE_DIR"
+rm -rf "$SITE_DIR/.git"   # drop the template's history; client site gets a fresh or no git later
 
 # ── Write client.js ──────────────────────────────
 cat > "$SITE_DIR/client.js" << CLIENTJS
@@ -399,6 +404,18 @@ fi
 
 echo "✓ Site deployed: ${NETLIFY_URL}"
 
+# ── Netlify custom domain (auto-add if provided) ─────────────────────
+if [[ -n "$CUSTOM_DOMAIN" ]]; then
+  NETLIFY_SITE_ID=$(grep -o '"siteId":"[^"]*"' "$SITE_DIR/.netlify/state.json" 2>/dev/null | sed 's/"siteId":"//;s/"$//')
+  if [[ -n "$NETLIFY_SITE_ID" ]]; then
+    netlify api updateSite --data "{\"site_id\":\"$NETLIFY_SITE_ID\",\"body\":{\"custom_domain\":\"$CUSTOM_DOMAIN\",\"domain_aliases\":[\"www.$CUSTOM_DOMAIN\"]}}" > /dev/null 2>&1 \
+      && echo "✓ Custom domain $CUSTOM_DOMAIN added in Netlify (SSL auto-provisions once DNS resolves)" \
+      || echo "⚠  Could not add custom domain in Netlify — add manually at Netlify → Domain settings"
+  else
+    echo "⚠  Netlify site ID not found — add custom domain manually"
+  fi
+fi
+
 # ── Patch ALLOWED_ORIGINS on Railway (CORS allowlist) ────────────────
 if [[ -n "$NETLIFY_URL" && "$NETLIFY_URL" != "(check netlify.com)" ]]; then
   ALLOWED_ORIGINS="$NETLIFY_URL"
@@ -413,6 +430,37 @@ if [[ -n "$NETLIFY_URL" && "$NETLIFY_URL" != "(check netlify.com)" ]]; then
   cd - > /dev/null
 else
   echo "⚠  Skipping ALLOWED_ORIGINS patch — Netlify URL missing. CORS will block form submissions until you set it."
+fi
+
+# ── Post-deploy smoke test ───────────────────────────────────────────
+echo ""
+echo "Running smoke test against ${RAILWAY_URL}/webhook ..."
+SMOKE_PAYLOAD=$(cat <<JSON
+{"name":"Smoke Test","phone":"${OWNER_PHONE_E164}","email":"${EMAIL}","service":"smoke","message":"Automated post-deploy test — ignore"}
+JSON
+)
+SMOKE_RESP=$(curl -sS --max-time 15 -X POST "${RAILWAY_URL}/webhook" \
+  -H "Content-Type: application/json" \
+  -H "Origin: ${NETLIFY_URL}" \
+  -d "$SMOKE_PAYLOAD" 2>&1) || true
+
+if echo "$SMOKE_RESP" | grep -q '"success":true'; then
+  echo "✓ Webhook accepted the smoke test"
+  # Give the async Notion/Email/SMS tasks a moment
+  sleep 6
+  cd "$SERVER_DIR"
+  SMOKE_LOGS=$(railway logs --service "${RAILWAY_NAME}" 2>&1 | tail -20 || true)
+  cd - > /dev/null
+  for check in "NOTION success" "EMAIL success" "SMS"; do
+    if echo "$SMOKE_LOGS" | grep -q "$check"; then
+      echo "  ✓ $check confirmed in logs"
+    else
+      echo "  ⚠ $check not seen in recent logs — check Railway dashboard"
+    fi
+  done
+else
+  echo "✗ Webhook rejected smoke test:"
+  echo "  $SMOKE_RESP"
 fi
 
 # ── Done ─────────────────────────────────────────
