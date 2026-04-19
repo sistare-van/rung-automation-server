@@ -145,11 +145,14 @@ ${(claudeMd || "Not found.").slice(0, 4000)}
 ## Recent Notion leads (last 48h, ${leads.length} entries)
 ${JSON.stringify(leads, null, 2).slice(0, 3000)}
 
+## Writing style (strict)
+Write in plain English a non-developer can understand. No jargon, no acronyms without a gloss, no file paths or code snippets. If a technical concept must appear, explain it in half a sentence the first time (e.g., "Notion — the cloud database where Van stores leads"). Keep bullets short; the whole email should read in under 3 minutes.
+
 Return JSON with exactly these keys (no prose, no markdown fences):
 {
-  "yesterday_progress": [3-6 short bullet strings synthesizing the work log + GitHub activity + leads + notable state. Prefer specifics over generalities. If the work log is present, weight it heavily — it's Van's own words about what he did.],
+  "yesterday_progress": [3-6 short bullet strings synthesizing the work log + GitHub activity + leads + notable state. Prefer specifics over generalities. If the work log is present, weight it heavily — it's Van's own words about what he did. Rewrite technical lines into plain English.],
   "todo_list": [3-5 concrete prioritized actions for today, focused on first paying client + sales pipeline + finishing blockers. If the work log mentions open threads or next steps, surface them.],
-  "claude_tip": "One 2-3 sentence practical Claude Code tip. Rotate topics across days (/init, worktrees, MCP, slash commands, subagents, hooks, keyboard shortcuts)."
+  "claude_tip": "One 2-3 sentence practical Claude Code tip, written plainly. Rotate topics across days (setting up a CLAUDE.md project file, parallel work with git worktrees, MCP connectors, slash commands, subagents, hooks, keyboard shortcuts)."
 }`;
 
   const msg = await anthropic.messages.create({
