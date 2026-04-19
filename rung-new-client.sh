@@ -103,6 +103,7 @@ read -rp "Phone (e.g. 312-555-0100): " PHONE
 read -rp "Business email: " EMAIL
 read -rp "Owner first name: " OWNER_NAME
 read -rp "Owner phone E.164 (e.g. +13125550100): " OWNER_PHONE_E164
+read -rp "Custom domain (optional, e.g. metroplumbing.com — ENTER to skip): " CUSTOM_DOMAIN
 
 # ── Theme ────────────────────────────────────────
 echo ""
@@ -250,6 +251,10 @@ CLIENTJS
 # ── Copy server ──────────────────────────────────
 SERVER_DIR=~/Desktop/${SLUG}-server
 if [ -d "$SERVER_DIR" ]; then
+  echo ""
+  echo "⚠  ~/Desktop/${SLUG}-server already exists. Overwrite? [y/N] "
+  read -r CONFIRM
+  [[ "$CONFIRM" =~ ^[Yy]$ ]] || { echo "Aborted."; exit 1; }
   rm -rf "$SERVER_DIR"
 fi
 cp -r "$SERVER_TEMPLATE" "$SERVER_DIR"
@@ -260,6 +265,7 @@ CLIENT_NAME=${BIZ_NAME}
 OWNER_NAME=${OWNER_NAME}
 OWNER_PHONE=${OWNER_PHONE_E164}
 OWNER_EMAIL=${EMAIL}
+SMS_DRY_RUN=true
 NOTION_TOKEN=${NOTION_TOKEN}
 TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
 TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
@@ -374,6 +380,22 @@ fi
 
 echo "✓ Site deployed: ${NETLIFY_URL}"
 
+# ── Patch ALLOWED_ORIGINS on Railway (CORS allowlist) ────────────────
+if [[ -n "$NETLIFY_URL" && "$NETLIFY_URL" != "(check netlify.com)" ]]; then
+  ALLOWED_ORIGINS="$NETLIFY_URL"
+  if [[ -n "$CUSTOM_DOMAIN" ]]; then
+    ALLOWED_ORIGINS="https://${CUSTOM_DOMAIN},https://www.${CUSTOM_DOMAIN},${ALLOWED_ORIGINS}"
+  fi
+  echo "ALLOWED_ORIGINS=${ALLOWED_ORIGINS}" >> "$SERVER_DIR/.env"
+  cd "$SERVER_DIR"
+  railway variables --set "ALLOWED_ORIGINS=${ALLOWED_ORIGINS}" --service "${RAILWAY_NAME}" > /dev/null 2>&1 \
+    && echo "✓ ALLOWED_ORIGINS set on Railway: ${ALLOWED_ORIGINS}" \
+    || echo "⚠  Failed to set ALLOWED_ORIGINS on Railway — set manually via dashboard"
+  cd - > /dev/null
+else
+  echo "⚠  Skipping ALLOWED_ORIGINS patch — Netlify URL missing. CORS will block form submissions until you set it."
+fi
+
 # ── Done ─────────────────────────────────────────
 echo ""
 echo "═══════════════════════════════════════════════"
@@ -386,8 +408,13 @@ echo ""
 echo "  Still to do (manual):"
 echo "  1. Drop owner.jpg into ~/Desktop/${SLUG}/photos/"
 echo "  2. Add Google Maps embed → client.js mapEmbedUrl"
-echo "  3. Connect Notion integration to the new DB:"
-echo "     Open ${BIZ_NAME} Leads in Notion → ··· → Connections → add your integration"
-echo "  4. Test: submit the contact form at ${NETLIFY_URL}"
+echo "  3. Test: submit the contact form at ${NETLIFY_URL}"
+if [[ -n "$CUSTOM_DOMAIN" ]]; then
+echo "  4. Wire ${CUSTOM_DOMAIN} at the registrar:"
+echo "     ALIAS @ → apex-loadbalancer.netlify.com"
+echo "     CNAME www → $(echo "$NETLIFY_URL" | sed 's|https://||')"
+echo "     Then add the custom domain in Netlify → Domain settings"
+fi
+echo "  5. Flip SMS_DRY_RUN=false on Railway once per-client A2P is approved"
 echo "═══════════════════════════════════════════════"
 echo ""
