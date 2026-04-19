@@ -30,6 +30,25 @@ if [[ ${#MISSING_CLIS[@]} -gt 0 ]]; then
   exit 1
 fi
 
+# ── Validation helpers ───────────────────────────────────────────────────────
+# Prompt until input matches the given regex. Usage: VAR=$(prompt_until "label: " "$RE" "error")
+prompt_until() {
+  local label="$1" regex="$2" errmsg="$3" val
+  while true; do
+    read -rp "$label" val </dev/tty
+    if [[ "$val" =~ $regex ]]; then
+      printf '%s' "$val"
+      return
+    fi
+    printf '  ✗ %s\n' "$errmsg" >&2
+  done
+}
+
+RE_SLUG='^[a-z0-9]+(-[a-z0-9]+)*$'
+RE_E164='^\+[1-9][0-9]{9,14}$'
+RE_EMAIL='^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$'
+RE_DOMAIN_OPT='^$|^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$'
+
 # ── Shared credentials (loaded once; reused across all clients) ──────────────
 if [[ ! -f "$SHARED_CREDS_FILE" ]]; then
   mkdir -p "$(dirname "$SHARED_CREDS_FILE")"
@@ -94,16 +113,16 @@ echo "════════════════════════�
 echo ""
 
 # ── Identity ─────────────────────────────────────
-read -rp "Client slug (no spaces, e.g. metro-plumbing): " SLUG
+SLUG=$(prompt_until "Client slug (lowercase, hyphens only, e.g. metro-plumbing): " "$RE_SLUG" "lowercase alphanumeric with single hyphens; no spaces, underscores, or uppercase")
 read -rp "Business name (e.g. Metro Plumbing): " BIZ_NAME
 BIZ_NAME="${BIZ_NAME//\"/}"
 read -rp "Tagline (e.g. Fast. Reliable. Licensed.): " TAGLINE
 read -rp "City, State (e.g. Chicago, IL): " CITY
 read -rp "Phone (e.g. 312-555-0100): " PHONE
-read -rp "Business email: " EMAIL
+EMAIL=$(prompt_until "Business email: " "$RE_EMAIL" "must look like name@domain.tld")
 read -rp "Owner first name: " OWNER_NAME
-read -rp "Owner phone E.164 (e.g. +13125550100): " OWNER_PHONE_E164
-read -rp "Custom domain (optional, e.g. metroplumbing.com — ENTER to skip): " CUSTOM_DOMAIN
+OWNER_PHONE_E164=$(prompt_until "Owner phone E.164 (e.g. +13125550100): " "$RE_E164" "must start with + and contain 10-15 digits (no spaces, no dashes)")
+CUSTOM_DOMAIN=$(prompt_until "Custom domain (optional, e.g. metroplumbing.com — ENTER to skip): " "$RE_DOMAIN_OPT" "must be a bare domain like metroplumbing.com (no https://, no slashes)")
 
 # ── Theme ────────────────────────────────────────
 echo ""
