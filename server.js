@@ -8,6 +8,8 @@ const { Client: NotionClient } = require("@notionhq/client");
 const twilio = require("twilio");
 const Anthropic = require("@anthropic-ai/sdk");
 const { Resend } = require("resend");
+const cron = require("node-cron");
+const { sendDailyBrief } = require("./scripts/send-daily-brief");
 
 // ── App setup ────────────────────────────────────────────────────────────────
 
@@ -390,6 +392,40 @@ app.post("/intake", async (req, res) => {
     return res.status(500).json({ success: false, message: "Could not send intake email" });
   }
 });
+
+// ── Daily briefing cron (only on deploys that opt-in) ───────────────────────
+
+if (process.env.ENABLE_DAILY_BRIEF === "true") {
+  let lastSentDate = null;
+
+  cron.schedule("0 9 * * *", async () => {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+    if (lastSentDate === today) {
+      console.log(`Daily brief already sent for ${today}, skipping`);
+      return;
+    }
+    try {
+      const id = await sendDailyBrief();
+      lastSentDate = today;
+      console.log(`Daily brief sent: ${id}`);
+    } catch (err) {
+      console.error("Daily brief failed:", err);
+      try {
+        const senderDomain = process.env.SENDER_DOMAIN || "rungproductions.com";
+        await resend.emails.send({
+          from: `Rung Ops <leads@${senderDomain}>`,
+          to: process.env.OWNER_EMAIL || "sistareae@gmail.com",
+          subject: `Rung Daily Briefing FAILED — ${today}`,
+          text: `Cron failed at ${new Date().toISOString()}.\n\n${err.stack || err.message || err}`,
+        });
+      } catch (notifyErr) {
+        console.error("Failed to send failure notification:", notifyErr);
+      }
+    }
+  }, { timezone: "America/New_York" });
+
+  console.log("Daily brief cron scheduled: 09:00 America/New_York");
+}
 
 app.listen(PORT, () => {
   console.log(`Rung server running on port ${PORT} — client: ${process.env.CLIENT_NAME}`);

@@ -3,26 +3,9 @@ const Anthropic = require("@anthropic-ai/sdk");
 const { execSync } = require("node:child_process");
 const { readFileSync } = require("node:fs");
 
-const {
-  RESEND_API_KEY,
-  NOTION_TOKEN,
-  NOTION_DATABASE_ID,
-  CLAUDE_API_KEY,
-  GITHUB_TOKEN,
-  GITHUB_USER = "sistare-van",
-  BRIEFING_TO = "sistareae@gmail.com",
-  BRIEFING_FROM = "Rung Daily <onboarding@resend.dev>",
-} = process.env;
-
-const requireEnv = (name, v) => {
-  if (!v) throw new Error(`missing env: ${name}`);
-  return v;
-};
-
-requireEnv("RESEND_API_KEY", RESEND_API_KEY);
-requireEnv("CLAUDE_API_KEY", CLAUDE_API_KEY);
-
-const today = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+function todayET() {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+}
 
 function safeSync(fn, fallback = "") {
   try { return fn(); } catch { return fallback; }
@@ -36,6 +19,7 @@ function esc(s) {
 }
 
 async function fetchGithubEvents() {
+  const { GITHUB_TOKEN, GITHUB_USER = "sistare-van" } = process.env;
   if (!GITHUB_TOKEN) return [];
   const cutoff = Date.now() - 24 * 3600 * 1000;
   const interesting = new Set([
@@ -99,6 +83,7 @@ function extractWorkLog() {
 }
 
 async function gather() {
+  const { NOTION_TOKEN, NOTION_DATABASE_ID } = process.env;
   const gitLog = safeSync(() =>
     execSync("git log --since='2 days ago' --pretty=format:'%h %ai %s' --all", { encoding: "utf8" }).trim()
   );
@@ -125,8 +110,8 @@ async function gather() {
 }
 
 async function composeDynamic({ gitLog, claudeMd, workLog, githubEvents, leads }) {
-  const anthropic = new Anthropic({ apiKey: CLAUDE_API_KEY });
-  const prompt = `Today's date: ${today}.
+  const anthropic = new Anthropic({ apiKey: process.env.CLAUDE_API_KEY });
+  const prompt = `Today's date: ${todayET()}.
 
 You're composing a daily briefing email for Van Sistare, who runs Rung Productions (a web agency selling websites + automation to local service businesses).
 
@@ -170,7 +155,7 @@ function buildHtml({ yesterday_progress, todo_list, claude_tip }) {
   const bullets = arr => (arr || []).map(b => `<li>${esc(b)}</li>`).join("");
   return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:640px;line-height:1.5;color:#1a1a1a">
   <h2 style="margin-bottom:0">Rung Daily Briefing</h2>
-  <p style="color:#666;margin-top:4px">${esc(today)}</p>
+  <p style="color:#666;margin-top:4px">${esc(todayET())}</p>
 
   <h3>Yesterday's Progress</h3>
   <ul>${bullets(yesterday_progress)}</ul>
@@ -184,6 +169,11 @@ function buildHtml({ yesterday_progress, todo_list, claude_tip }) {
 }
 
 async function sendViaResend(html) {
+  const {
+    RESEND_API_KEY,
+    BRIEFING_TO = "sistareae@gmail.com",
+    BRIEFING_FROM = "Rung Daily <onboarding@resend.dev>",
+  } = process.env;
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -193,7 +183,7 @@ async function sendViaResend(html) {
     body: JSON.stringify({
       from: BRIEFING_FROM,
       to: [BRIEFING_TO],
-      subject: `Rung Daily Briefing — ${today}`,
+      subject: `Rung Daily Briefing — ${todayET()}`,
       html,
     }),
   });
@@ -202,13 +192,20 @@ async function sendViaResend(html) {
   return JSON.parse(body);
 }
 
-(async () => {
+async function sendDailyBrief() {
+  if (!process.env.RESEND_API_KEY) throw new Error("missing env: RESEND_API_KEY");
+  if (!process.env.CLAUDE_API_KEY) throw new Error("missing env: CLAUDE_API_KEY");
   const ctx = await gather();
   const brief = await composeDynamic(ctx);
   const html = buildHtml(brief);
   const { id } = await sendViaResend(html);
-  console.log(`Sent: ${id}`);
-})().catch(err => {
-  console.error(err);
-  process.exit(1);
-});
+  return id;
+}
+
+module.exports = { sendDailyBrief };
+
+if (require.main === module) {
+  sendDailyBrief()
+    .then(id => console.log(`Sent: ${id}`))
+    .catch(err => { console.error(err); process.exit(1); });
+}

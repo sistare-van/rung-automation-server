@@ -1,9 +1,9 @@
 name: Daily Briefing Email
 
 on:
-  schedule:
-    # 13:05 UTC daily = 9:05am ET (EDT). Handles DST by lagging briefly in EST (8:05am).
-    - cron: "5 13 * * *"
+  # Scheduled trigger removed — daily brief now runs via node-cron inside
+  # rung-productions-server on Railway (ENABLE_DAILY_BRIEF=true). This workflow
+  # is kept for manual fallback only.
   workflow_dispatch: {}
 
 jobs:
